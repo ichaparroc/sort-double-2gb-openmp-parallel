@@ -4,13 +4,16 @@
 #include<algorithm>
 #include<chrono>
 #include<fstream>
-#include<math>
+#include<omp.h>
+//#include<math>
 
 #define INFINITO 2.0
 
-#define TAMAÑO 120000000
+#define FILE "list.txt"
 
-	using namespace std;
+#define TAMANHO 120000000
+//#define TAMANHO 10
+using namespace std;
 
 template<class RandomAccessIterator>
 void print(RandomAccessIterator first, RandomAccessIterator last);
@@ -20,6 +23,12 @@ void insert_sort(RandomAccessIterator first, RandomAccessIterator last);
 
 template<class RandomAccessIterator>
 void merge(RandomAccessIterator first,RandomAccessIterator middle,RandomAccessIterator last);
+
+template<class RandomAccessIterator>
+void merge_unbalanced(RandomAccessIterator first_destination,RandomAccessIterator first_origin,int first,int middle, int last);
+
+template<class RandomAccessIterator>
+void merge_inplace(RandomAccessIterator first,RandomAccessIterator middle,RandomAccessIterator last);
 
 template<class RandomAccessIterator>
 void merge_sort(RandomAccessIterator first, RandomAccessIterator last);
@@ -38,8 +47,8 @@ void read_data(RandomAccessIterator first);
 
 int main(int argc,char** argv)
 {
-	thread_count=strtol(argv[1],NULL,10);
-	vector<double>lista(TAMAÑO),lista2(TAMAÑO);
+	int thread_count=strtol(argv[1],NULL,10);
+	vector<double>lista(TAMANHO),listaa(TAMANHO);
 	std::chrono::time_point<std::chrono::system_clock> start, end;
 	int t;
 /*
@@ -68,60 +77,74 @@ int main(int argc,char** argv)
 	//paralell quimer_sort
 	read_data(lista.begin());
 	cout<<"\nLectura terminada, probando QuiMerSort";
-	#pragma omp parallel for num_threads(thread_counts) shared(lista,thread_count) private(my_rank)
+
+	start = std::chrono::system_clock::now();
+
+	int quota=TAMANHO/thread_count;
+	//cout<<"\nquota = "<<quota;
+
+	vector<int>merged1(thread_count);
+	vector<int>merged2(thread_count);
+	for(int i=0;i<thread_count;i++)
 	{
-		int my_rank=omp_get_thread_num();
-		quick_sort(lista.begin()+my_rank*TAMAÑO/thread_count,lista.begin()+(my_rank+1)*TAMAÑO/thread_count);
+		merged1[i]=i;
+		merged2[i]=quota;
 	}
-	#pragma omp parallel for num_threads(thread_counts) private(my_rank)
+	merged2[thread_count-1]+=TAMANHO-(thread_count*quota);
+
+	//cout<<"\n"; for(vector<int>::const_iterator i=merged1.begin();i!=merged1.end();i++) cout<<" "<<*i;
+	//cout<<"\n"; for(vector<int>::const_iterator i=merged2.begin();i!=merged2.end();i++) cout<<" "<<*i;
+
+	//cout<<"\n"; for(vector<double>::const_iterator i=lista.begin();i!=lista.end();i++) cout<<" "<<*i;
+
+#	pragma omp parallel num_threads(thread_count) shared(lista,quota)
 	{
 		int my_rank=omp_get_thread_num();
-		for(int i=0;i<(int)log2(num_threads-1)+1;i++)
-			for(int i=0;i+pow(2,i)<num_threads;i+=pow(2,i+1))
-				if(my_rank=i)
+		quick_sort(lista.begin()+my_rank*quota,lista.begin()+my_rank*quota+merged2[my_rank]);
+	}
+
+	//cout<<"\n"; for(vector<double>::const_iterator i=lista.begin();i!=lista.end();i++) cout<<" "<<*i;
+
+	int count=0;
+	while(merged1.size()!=1)
+	{
+		//cout<<"\n"; for(vector<int>::const_iterator i=merged1.begin();i!=merged1.end();i++) cout<<" "<<*i;
+		//cout<<"\n"; for(vector<int>::const_iterator i=merged2.begin();i!=merged2.end();i++) cout<<" "<<*i;
+
+		//cout<<"\nReduction level: "<<count++;
+		#	pragma omp parallel num_threads(thread_count) shared(count,lista,listaa,quota,merged1,merged2)
+		{
+			int my_rank=omp_get_thread_num();
+			for(int i=0;(unsigned int)(i+1)<merged1.size();i+=2)
+			{
+				if(my_rank==merged1[i])
 				{
-					int inicio1=my_rank*TAMAÑO/thread_count;
-					int fin1=(my_rank+pow(2,i))*TAMAÑO/thread_count;
-					int inicio2=(my_rank+pow(2,i))*TAMAÑO/thread_count;
-					int fin2=(my_rank+2*pow(2,i))*TAMAÑO/thread_count;
-
-					for(int i=inicio1;i<fin2;i++)
-					{
-						if(
-					}
-					RandomAccessIterator Index,L_Index,R_Index;
-
-					vector<double>L(last-middle+1);
-					vector<double>R(last-middle+1);
-					L_Index=L.begin();
-					R_Index=R.begin();
-
-					for(Index=first;Index!=middle;Index++,L_Index++)
-						*L_Index=*Index;
-					*L_Index=INFINITO;
-
-					for(Index=middle;Index!=last;Index++,R_Index++)
-						*R_Index=*Index;
-					*R_Index=INFINITO;
-					L_Index=L.begin();
-					R_Index=R.begin();
-					for(Index=first;Index!=last;Index++)
-					{
-						if(*L_Index<=*R_Index)
-						{
-							*Index=*L_Index;
-							L_Index++;
-						}
-						else
-						{
-							*Index=*R_Index;
-							R_Index++;
-						}
-					}
+					int inicio=merged1[i]*quota;
+					int medio=merged1[i]*quota+merged2[i];
+					int fin=merged1[i+1]*quota+merged2[i+1];
+					//printf("\nmy_rank= %d; El thread %d se une con %d, inicio=%d, medio=%d, fin=%d",my_rank,merged1[i],merged1[i+1],inicio,medio,fin);
+					//merge_unbalanced(listaa.begin(),lista.begin(),inicio,medio,fin);
+					merge_inplace(lista.begin()+inicio,lista.begin()+medio,lista.begin()+fin);
 				}
+			}
+		}
+		for(int i=0;(unsigned int)(i+1)<merged1.size();i++)
+		{
+			merged2[i]+=merged2[i+1];
+			merged1.erase(merged1.begin()+i+1);
+			merged2.erase(merged2.begin()+i+1);
+		}
+
+		//cout<<"\n"; for(vector<double>::const_iterator i=lista.begin();i!=lista.end();i++) cout<<" "<<*i;
 	}
 
+	end = std::chrono::system_clock::now();
+	t=std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
 
+	if(!issorted(listaa.begin(),listaa.end()))
+		throw "merge-sort not working";
+
+	cout<<"\nTime with secuencial quicksort: "<<t<<"\n";
 
 	return 0;
 }
@@ -162,7 +185,7 @@ void merge(RandomAccessIterator first,RandomAccessIterator middle,RandomAccessIt
 {
 	RandomAccessIterator Index,L_Index,R_Index;
 
-	vector<double>L(last-middle+1);
+	vector<double>L(middle-first+1);
 	vector<double>R(last-middle+1);
 	L_Index=L.begin();
 	R_Index=R.begin();
@@ -188,6 +211,49 @@ void merge(RandomAccessIterator first,RandomAccessIterator middle,RandomAccessIt
 			*Index=*R_Index;
 			R_Index++;
 		}
+	}
+}
+
+template<class RandomAccessIterator>
+void merge_unbalanced(RandomAccessIterator first_destination,RandomAccessIterator first_origin,int first,int middle,int last)
+{
+	RandomAccessIterator Index=first_destination+first,L_Index=first_origin+first,R_Index=first_origin+middle;
+
+	while(L_Index!=first_origin+middle && R_Index!=first_origin+last)
+	{
+		if(*L_Index<=*R_Index)
+		{
+			*Index=*L_Index;
+			L_Index++;
+		}
+		else
+		{
+			*Index=*R_Index;
+			R_Index++;
+		}
+		Index++;
+	}
+
+	while(L_Index!=first_origin+middle)
+	{
+		*Index=*L_Index;
+		L_Index++;
+		Index++;
+	}
+	while(R_Index!=first_origin+last)
+	{
+		*Index=*R_Index;
+		R_Index++;
+		Index++;
+	}
+
+	Index=first_destination+first;
+	L_Index=first_origin+first;
+	while(Index!=first_destination+last)
+	{
+		*L_Index=*Index;
+		L_Index++;
+		Index++;
 	}
 }
 
@@ -218,13 +284,15 @@ template<class RandomAccessIterator>
 void read_data(RandomAccessIterator first)
 {
 	ifstream myReadFile;
-	myReadFile.open("list.txt");
+	myReadFile.open(FILE);
+	int count=0;
 	if(myReadFile.is_open())
 	{
 		while(!myReadFile.eof())
 		{
 			myReadFile>>*first;
 			first++;
+			count++;
 		}
 	}
 }
