@@ -1,0 +1,2 @@
+- paralelizar quicksort haciendo un for para ver cuantas divisiones hay y cuando llegue al numero de procesadores recien paralelizar
+- usar sample sort para np procesadores

@@ -4,7 +4,7 @@
 #include<algorithm>
 #include<chrono>
 #include<fstream>
-#include<omp.h>
+#include "omp.h"
 //#include<math>
 
 #define INFINITO 2.0
@@ -81,7 +81,7 @@ int main(int argc,char** argv)
 	start = std::chrono::system_clock::now();
 
 	int quota=TAMANHO/thread_count;
-	//cout<<"\nquota = "<<quota;
+	cout<<"\nquota = "<<quota;
 
 	vector<int>merged1(thread_count);
 	vector<int>merged2(thread_count);
@@ -92,8 +92,8 @@ int main(int argc,char** argv)
 	}
 	merged2[thread_count-1]+=TAMANHO-(thread_count*quota);
 
-	//cout<<"\n"; for(vector<int>::const_iterator i=merged1.begin();i!=merged1.end();i++) cout<<" "<<*i;
-	//cout<<"\n"; for(vector<int>::const_iterator i=merged2.begin();i!=merged2.end();i++) cout<<" "<<*i;
+	cout<<"\n"; for(vector<int>::const_iterator i=merged1.begin();i!=merged1.end();i++) cout<<" "<<*i;
+	cout<<"\n"; for(vector<int>::const_iterator i=merged2.begin();i!=merged2.end();i++) cout<<" "<<*i;
 
 	//cout<<"\n"; for(vector<double>::const_iterator i=lista.begin();i!=lista.end();i++) cout<<" "<<*i;
 
@@ -108,10 +108,10 @@ int main(int argc,char** argv)
 	int count=0;
 	while(merged1.size()!=1)
 	{
-		//cout<<"\n"; for(vector<int>::const_iterator i=merged1.begin();i!=merged1.end();i++) cout<<" "<<*i;
-		//cout<<"\n"; for(vector<int>::const_iterator i=merged2.begin();i!=merged2.end();i++) cout<<" "<<*i;
+		cout<<"\n"; for(vector<int>::const_iterator i=merged1.begin();i!=merged1.end();i++) cout<<" "<<*i;
+		cout<<"\n"; for(vector<int>::const_iterator i=merged2.begin();i!=merged2.end();i++) cout<<" "<<*i;
 
-		//cout<<"\nReduction level: "<<count++;
+		cout<<"\nReduction level: "<<count++;
 		#	pragma omp parallel num_threads(thread_count) shared(count,lista,listaa,quota,merged1,merged2)
 		{
 			int my_rank=omp_get_thread_num();
@@ -122,9 +122,9 @@ int main(int argc,char** argv)
 					int inicio=merged1[i]*quota;
 					int medio=merged1[i]*quota+merged2[i];
 					int fin=merged1[i+1]*quota+merged2[i+1];
-					//printf("\nmy_rank= %d; El thread %d se une con %d, inicio=%d, medio=%d, fin=%d",my_rank,merged1[i],merged1[i+1],inicio,medio,fin);
-					//merge_unbalanced(listaa.begin(),lista.begin(),inicio,medio,fin);
-					merge_inplace(lista.begin()+inicio,lista.begin()+medio,lista.begin()+fin);
+					printf("\nmy_rank= %d; El thread %d se une con %d, inicio=%d, medio=%d, fin=%d",my_rank,merged1[i],merged1[i+1],inicio,medio,fin);
+					merge_unbalanced(listaa.begin(),lista.begin(),inicio,medio,fin);
+					//merge_inplace(lista.begin()+inicio,lista.begin()+medio,lista.begin()+fin);
 				}
 			}
 		}
@@ -142,6 +142,7 @@ int main(int argc,char** argv)
 	t=std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
 
 	if(!issorted(listaa.begin(),listaa.end()))
+	//if(!issorted(lista.begin(),lista.end()))
 		throw "merge-sort not working";
 
 	cout<<"\nTime with secuencial quicksort: "<<t<<"\n";
@@ -212,6 +213,37 @@ void merge(RandomAccessIterator first,RandomAccessIterator middle,RandomAccessIt
 			R_Index++;
 		}
 	}
+}
+
+template<class RandomAccessIterator>
+void merge_inplace(RandomAccessIterator first,RandomAccessIterator middle,RandomAccessIterator last)
+{
+	cout<<"\nWelcome to merge_inplace";
+	cout<<"\nPosition of R: "<<middle-first;
+	RandomAccessIterator L_Index=first,R_Index=middle,aux;
+	double temp;
+	while(L_Index!=R_Index)
+	{
+		cout<<"\nPosition of L: "<<L_Index-first;
+		if(*L_Index<=*R_Index)
+		{
+			L_Index++;
+		}
+		else
+		{
+			temp=*L_Index;
+			*L_Index=*R_Index;
+			aux=R_Index;
+			while((aux+1)!=last && temp>*(aux+1))
+			{
+				*aux=*(aux+1);
+				aux++;
+			}
+			*aux=temp;
+			L_Index++;
+		}
+	}
+	cout<<"End of inplace merge";
 }
 
 template<class RandomAccessIterator>
