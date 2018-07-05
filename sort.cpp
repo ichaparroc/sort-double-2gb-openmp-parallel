@@ -11,8 +11,8 @@
 
 #define FILE "list.txt"
 
-#define TAMANHO 120000000
-//#define TAMANHO 10
+//#define TAMANHO 120000000
+#define TAMANHO 100
 using namespace std;
 
 template<class RandomAccessIterator>
@@ -37,6 +37,9 @@ template<class RandomAccessIterator>
 void quick_sort(RandomAccessIterator first, RandomAccessIterator last);
 
 template<class RandomAccessIterator>
+void quick_sort_iterative(RandomAccessIterator first,RandomAccessIterator last);
+
+template<class RandomAccessIterator>
 RandomAccessIterator partition_quick_sort(RandomAccessIterator first, RandomAccessIterator last);
 
 template<class RandomAccessIterator>
@@ -44,6 +47,9 @@ bool issorted(RandomAccessIterator first, RandomAccessIterator last);
 
 template<class RandomAccessIterator>
 void read_data(RandomAccessIterator first);
+
+template<class RandomAccessIterator>
+void insert_sort(RandomAccessIterator first, RandomAccessIterator last);
 
 int main(int argc,char** argv)
 {
@@ -62,6 +68,19 @@ int main(int argc,char** argv)
 	if(!issorted(lista.begin(),lista.end()))
 		throw "merge-sort not working";
 	cout<<"\nTime with secuencial megesort: "<<t<<"\n";
+*/
+
+	//secuencial insert
+	read_data(lista.begin());
+	cout<<"\nLectura terminada, probando InsertSort";
+	start = std::chrono::system_clock::now();
+	insert_sort(lista.begin(),lista.end());
+	end = std::chrono::system_clock::now();
+	t=std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+	if(!issorted(lista.begin(),lista.end()))
+		throw "insert-sort not working";
+	cout<<"\nTime with secuencial insertsort: "<<t<<"\n";
+
 
 	//secuencial quicksort
 	read_data(lista.begin());
@@ -71,10 +90,93 @@ int main(int argc,char** argv)
 	end = std::chrono::system_clock::now();
 	t=std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
 	if(!issorted(lista.begin(),lista.end()))
-		throw "merge-sort not working";
+		throw "quick-sort not working";
 	cout<<"\nTime with secuencial quicksort: "<<t<<"\n";
+
+	cin>>t;
+
+/*	//secuencial quicksort iterative
+	read_data(lista.begin());
+	cout<<"\nLectura terminada, probando QuickSort";
+	start = std::chrono::system_clock::now();
+	quick_sort_iterative(lista.begin(),lista.end());
+	end = std::chrono::system_clock::now();
+	t=std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+	if(!issorted(lista.begin(),lista.end()))
+		throw "quick-sort-iterative not working";
+	cout<<"\nTime with secuencial quicksort iterative: "<<t<<"\n";
 */
-	//paralell quimer_sort
+/*
+	//psrs
+	read_data(lista.begin());
+	cout<<"\nLectura terminada, probando Parallel Sorting by Regular Sampling";
+
+	vector<double>samples,pivotes;
+
+	start = std::chrono::system_clock::now();
+
+	int quota=TAMANHO/thread_count;
+
+#	pragma omp parallel num_threads(thread_count) shared(lista,quota)
+	{
+		int my_rank=omp_get_thread_num();
+		quick_sort(lista.begin()+my_rank*quota,lista.begin()+(my_rank+1)*quota);
+	}
+
+	int w=quota/thread_count;
+
+/*	int index=0;
+	for(int i=0;i<thread_count;i++)
+		for(int j=0;j<3;j++)
+			samples.push_back(*(lista.begin()+w*j+i*quota));
+
+
+	samples.push_back(*(lista.begin()+7500000));
+	samples.push_back(*(lista.begin()+15000000));
+	samples.push_back(*(lista.begin()+22500000));
+
+	samples.push_back(*(lista.begin()+37500000));
+	samples.push_back(*(lista.begin()+45000000));
+	samples.push_back(*(lista.begin()+52500000));
+
+	samples.push_back(*(lista.begin()+67500000));
+	samples.push_back(*(lista.begin()+75000000));
+	samples.push_back(*(lista.begin()+82500000));
+
+	samples.push_back(*(lista.begin()+97500000));
+	samples.push_back(*(lista.begin()+105000000));
+	samples.push_back(*(lista.begin()+112500000));
+
+	quick_sort(samples.begin(),samples.end());
+
+for(int i=0;i<thread_count*3;i++) cout<<"\n ---"<<samples[i];
+
+/*	for(int i=0;i<thread_count-1;i++)
+		pivotes.push_back(*(samples.begin()+(i+1)*thread_count+(thread_count/2)));
+
+
+	pivotes.push_back(*(samples.begin()+3));
+	pivotes.push_back(*(samples.begin()+6));
+	pivotes.push_back(*(samples.begin()+9));
+
+	cout<<"\n\n";
+
+	for(int i=0;i<thread_count-1;i++) cout<<"\n ---"<<pivotes[i];
+
+	vector<int>init0(4),init1(4),init2(4),init3(4);
+
+#	pragma omp parallel num_threads(thread_count) shared(lista,quota)
+	{
+		int my_rank=omp_get_thread_num();
+		vector<string>::iterator it
+		quick_sort(lista.begin()+my_rank*quota,lista.begin()+(my_rank+1)*quota);
+	}
+*/
+
+	//pivotes=p-1
+	//posiciones:p+p,2p+p,p(p-1)+p
+
+/*	//paralell quimer_sort
 	read_data(lista.begin());
 	cout<<"\nLectura terminada, probando QuiMerSort";
 
@@ -146,7 +248,7 @@ int main(int argc,char** argv)
 		throw "merge-sort not working";
 
 	cout<<"\nTime with secuencial quicksort: "<<t<<"\n";
-
+*/
 	return 0;
 }
 
@@ -170,16 +272,34 @@ int main(int argc,char** argv)
 		aa=a;
 		start = std::chrono::system_clock::now();
 		quick_sort(aa.begin(),aa.end());
-	  	end = std::chrono::system_clock::now();
+	 	end = std::chrono::system_clock::now();
 		t3=std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
 		if(!issorted(aa.begin(),aa.end()))
 			throw "quicksort not working";
 
-		cout<<n<<":  "<<t1<<";"<<t2<<";"<<t3<<endl;
-  }
+		cout<<n<<": "<<t1<<";"<<t2<<";"<<t3<<endl;
+ }
 
-  return 0;
+ return 0;
 }*/
+
+template<class RandomAccessIterator>
+void insert_sort(RandomAccessIterator first, RandomAccessIterator last)
+{
+	int key;
+	RandomAccessIterator i,j;
+	for(j=first+1;j!=last;j++)
+	{
+		key=*j;
+		i=j-1;
+		while(i!=first-1&&*i>key)
+		{
+			*(i+1)=*i;
+			i--;
+		}
+		*(i+1)=key;
+	}
+}
 
 template<class RandomAccessIterator>
 void merge(RandomAccessIterator first,RandomAccessIterator middle,RandomAccessIterator last)
@@ -360,3 +480,32 @@ RandomAccessIterator partition_quick_sort(RandomAccessIterator first,RandomAcces
 	return i+1;
 }
 
+/*template<class RandomAccessIterator>
+void quick_sort_iterative(RandomAccessIterator first,RandomAccessIterator last)
+{
+	RandomAccessIterator stack[last-first+1],l=first,h=last,p;
+	int top=-1;
+
+	stack[++top]=l;
+	stack[++top]=h;
+
+  	while(top >=0)
+  	{
+    	h=stack[top--];
+    	l=stack[top--];
+
+ 		p=partition_quick_sort(l,h);
+
+		if(p-l-1>0)
+		{
+			stack[++top]=l;
+			stack[++top]=p-1;
+		}
+		if(p-h+1<0)
+		{
+			stack[++top]=p+1;
+			stack[++top]=h;
+		}
+	}
+}
+*/
