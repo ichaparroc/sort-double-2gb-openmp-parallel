@@ -1,0 +1,616 @@
+#include<iostream>
+#include<chrono>
+#include<fstream>
+#include<pthread.h>
+#include<sys/mman.h>
+#define FILE "list.txt"
+
+#define TAMANHO 120000000
+//#define TAMANHO 2000000
+
+using namespace std;
+
+void *quick_sort_iterative(void *threadarg);
+
+void *quick_sort_iterative_pthread_2(void *threadarg);
+
+void *quick_sort_iterative_pthread_4(void *threadarg);
+
+void *quick_sort_iterative_pthread_8(void *threadarg);
+
+void quick_sort_iterative_pthread_16(void *threadarg);
+
+void insert_sort(double lista[],long l,long h);
+
+bool issorted(double lista[]);
+
+void read_data(double lista[]);
+
+double* lista=new double[TAMANHO];
+
+struct thread_data
+{
+	long l;
+	long h;
+};
+
+double punto=0.3;
+
+int main(int argc,char** argv)
+{
+	mlock(&lista[0],TAMANHO);
+	int thread_count=strtol(argv[1],NULL,10);
+	std::chrono::time_point<std::chrono::system_clock> start, end;
+	int t;
+
+	int minimo;
+
+	//double* lista=new double[TAMANHO];
+
+/*read_data(lista);
+	printf("\n Iniciando ordenamiento");
+	start = std::chrono::system_clock::now();
+	insert_sort(lista,0,TAMANHO-1);
+	end = std::chrono::system_clock::now();
+	t=std::chrono::duration_cast<std::chrono::nanoseconds>(end-start).count();
+	cout<<"\n Ordenamiento Terminado";
+	if(!issorted(lista))
+		throw "quick-sort-iterative not working";
+	cout<<"\nTime with secuencial insertsort: "<<t<<"\n";*/
+
+
+	//read_data(lista);
+
+	struct thread_data td;
+	td.l=0;
+	td.h=TAMANHO-1;
+
+	printf("\n Iniciando ordenamiento");
+		for(int i=0;i<10;i++)
+		{
+			read_data(lista);
+			start = std::chrono::system_clock::now();
+			quick_sort_iterative_pthread_16((void *)&td);
+			end = std::chrono::system_clock::now();
+			t=std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count();
+			//printf("\n Ordenamiento Terminado");
+			if(!issorted(lista))
+				throw "quick-sort-iterative not working";
+			//printf("\nTime with secuencial quicksort iterative: %d\n",t);
+			if(i==0)
+				minimo=t;
+			else
+				if(minimo>t)
+					minimo=t;
+		}
+	cout<<"\nTime: "<<t<<"\n";
+	return 0;
+}
+
+void insert_sort(double lista[],long l,long h)
+{
+	long i,j;
+	double key;
+
+	for (i=l+1;i<=h;i++)
+	{
+		key=lista[i];
+		j=i-1;
+
+		while(j>=l && lista[j]>key)
+		{
+			lista[j+1]=lista[j];
+            j=j-1;
+		}
+        lista[j+1]=key;
+	}
+}
+
+bool issorted(double lista[])
+{
+	int flag=1;
+	for(int i=0;i<TAMANHO-1;i++)
+		if(lista[i]>lista[i+1])
+			flag=0;
+	return flag;
+}
+
+void read_data(double lista[])
+{
+	ifstream myReadFile;
+	myReadFile.open(FILE);
+	int count=0;
+
+	if(myReadFile.is_open())
+	{
+		//while(!myReadFile.eof())
+		while(count<TAMANHO)
+		{
+			myReadFile>>lista[count];
+			count++;
+		}
+	}
+}
+
+//void quick_sort_iterative(long l,long h)
+void *quick_sort_iterative(void *threadarg)
+{
+	//read args l,h
+	struct thread_data *my_data;
+	my_data=(struct thread_data *)threadarg;
+	long l=my_data->l,h=my_data->h;
+
+	long* stack=new long [h-l+1];
+   	long top=-1,p,i,j;
+
+	int flag; //4 hoare partition
+
+	double x,aux;
+
+	double key;//insertionsort
+
+   	stack[++top]=l;
+   	stack[++top]=h;
+
+	while(top>=0)
+	{
+    	h=stack[top--];
+        l=stack[top--];
+
+		x=lista[l];
+		i=l-1;
+		j=h+1;
+
+		flag=1;
+
+		while(flag)
+		{
+			do
+			{
+				i++;
+			}
+			while(lista[i]<x);
+			do
+			{
+				j--;
+			}
+			while(lista[j]>x);
+			if(i>=j)
+			{
+				p=j;
+				flag=0;
+			}
+			else
+			{
+				aux=lista[i];
+				lista[i]=lista[j];
+				lista[j]=aux;
+			}
+		}
+
+/*		x=lista[h];
+		i=(l-1);
+
+		for(j=l;j<=h-1;j++)
+        	if(lista[j]<=x)
+	        {
+				i++;
+        	    aux=lista[i];
+            	lista[i]=lista[j];
+	            lista[j]=aux;
+			}
+		p=i+1;
+		aux=lista[p];
+		lista[p]=lista[h];
+		lista[h]=aux;
+*/
+        //if(p-1>l)
+        if(p>l)
+        {
+            if(p-l<16)
+            {
+            	//insert_sort(lista,l,p-1);
+				//for (i=l+1;i<=p-1;i++)
+				for (i=l+1;i<=p;i++)
+				{
+					key=lista[i];
+					j=i-1;
+
+					while(j>=l && lista[j]>key)
+					{
+						lista[j+1]=lista[j];
+    	    		    j=j-1;
+					}
+			        lista[j+1]=key;
+				}
+            }
+           	else
+           	{
+    	        	stack[++top]=l;
+        	    	stack[++top]=p;
+        	    	//stack[++top]=p-1;
+        	}
+        }
+        if(p+1<h)
+        {
+            if(h-p<19)
+			{
+				//insert_sort(lista,p+1,h);
+				for (i=p+2;i<=h;i++)
+				{
+					key=lista[i];
+					j=i-1;
+
+					while(j>=p+1 && lista[j]>key)
+					{
+						lista[j+1]=lista[j];
+    	    		    j=j-1;
+					}
+			        lista[j+1]=key;
+				}
+            }
+            else
+            {
+            	stack[++top]=p+1;
+            	stack[++top]=h;
+        	}
+        }
+    }
+	pthread_exit(NULL);
+}
+
+//void quick_sort_iterative_pthread(long l,long h)
+void *quick_sort_iterative_pthread_2(void *threadarg)
+{
+	//read args l,h
+	struct thread_data *my_data;
+	my_data=(struct thread_data *)threadarg;
+	long l=my_data->l,h=my_data->h;
+
+	struct thread_data td[2];
+
+	long p,i,j;
+	double x,aux;
+
+/*	x=lista[l];
+	i=l-1;
+	j=h+1;
+	int flag=1;
+	while(flag)
+	{
+		do
+    	{
+	    	i++;
+	    }
+	    while(lista[i]<x);
+	    do
+	    {
+    		j--;
+    	}
+	    while(lista[j]>x);
+    	if(i>=j)
+	    {
+    		p=j;
+        	flag=0;
+	    }
+    	else
+    	{
+	    	aux=lista[i];
+    	    lista[i]=lista[j];
+        	lista[j]=aux;
+	    }
+	}
+*/
+	x=lista[h];
+
+	i=(l-1);
+
+	for(j=l;j<=h-1;j++)
+       	if(lista[j]<=x)
+        {
+			i++;
+       	    aux=lista[i];
+           	lista[i]=lista[j];
+            lista[j]=aux;
+		}
+	p=i+1;
+	aux=lista[p];
+	lista[p]=lista[h];
+	lista[h]=aux;
+
+	td[0].l=l;
+	td[0].h=p-1;
+
+	td[1].l=p+1;
+	td[1].h=h;
+
+	pthread_t thread[2];
+	int rc;
+
+	rc=pthread_create(&thread[0],NULL,quick_sort_iterative,(void *)&td[0]);
+	if(rc)
+	{
+		printf("Error:unable to create thread, %d",rc);
+        exit(-1);
+	}
+
+	rc=pthread_create(&thread[1],NULL,quick_sort_iterative,(void *)&td[1]);
+	if(rc)
+	{
+		printf("Error:unable to create thread, %d",rc);
+        exit(-1);
+	}
+
+	pthread_join(thread[0],NULL);
+	pthread_join(thread[1],NULL);
+
+	pthread_exit(NULL);
+
+}
+
+
+void *quick_sort_iterative_pthread_4(void *threadarg)
+{
+	//read args l,h
+	struct thread_data *my_data;
+	my_data=(struct thread_data *)threadarg;
+	long l=my_data->l,h=my_data->h;
+
+	struct thread_data td[2];
+
+	long p,i,j;
+	double x,aux;
+
+/*	x=lista[l];
+	i=l-1;
+	j=h+1;
+	int flag=1;
+	while(flag)
+	{
+		do
+    	{
+	    	i++;
+	    }
+	    while(lista[i]<x);
+	    do
+	    {
+    		j--;
+    	}
+	    while(lista[j]>x);
+    	if(i>=j)
+	    {
+    		p=j;
+        	flag=0;
+	    }
+    	else
+    	{
+	    	aux=lista[i];
+    	    lista[i]=lista[j];
+        	lista[j]=aux;
+	    }
+	}
+*/
+
+	x=lista[h];
+
+	i=(l-1);
+
+	for(j=l;j<=h-1;j++)
+       	if(lista[j]<=x)
+        {
+			i++;
+       	    aux=lista[i];
+           	lista[i]=lista[j];
+            lista[j]=aux;
+		}
+	p=i+1;
+	aux=lista[p];
+	lista[p]=lista[h];
+	lista[h]=aux;
+
+	td[0].l=l;
+	td[0].h=p-1;
+
+	td[1].l=p+1;
+	td[1].h=h;
+
+	pthread_t thread[2];
+	int rc;
+
+	rc=pthread_create(&thread[0],NULL,quick_sort_iterative_pthread_2,(void *)&td[0]);
+	if(rc)
+	{
+		printf("Error:unable to create thread, %d",rc);
+        exit(-1);
+	}
+
+	rc=pthread_create(&thread[1],NULL,quick_sort_iterative_pthread_2,(void *)&td[1]);
+	if(rc)
+	{
+		printf("Error:unable to create thread, %d",rc);
+        exit(-1);
+	}
+
+	pthread_join(thread[0],NULL);
+	pthread_join(thread[1],NULL);
+
+	pthread_exit(NULL);
+
+}
+
+void *quick_sort_iterative_pthread_8(void *threadarg)
+{
+	//read args l,h
+	struct thread_data *my_data;
+	my_data=(struct thread_data *)threadarg;
+	long l=my_data->l,h=my_data->h;
+
+	struct thread_data td[2];
+
+	long p,i,j;
+	double x,aux;
+
+/*	x=lista[l];
+	i=l-1;
+	j=h+1;
+	int flag=1;
+	while(flag)
+	{
+		do
+    	{
+	    	i++;
+	    }
+	    while(lista[i]<x);
+	    do
+	    {
+    		j--;
+    	}
+	    while(lista[j]>x);
+    	if(i>=j)
+	    {
+    		p=j;
+        	flag=0;
+	    }
+    	else
+    	{
+	    	aux=lista[i];
+    	    lista[i]=lista[j];
+        	lista[j]=aux;
+	    }
+	}
+*/
+	x=lista[h];
+
+	i=(l-1);
+
+	for(j=l;j<=h-1;j++)
+       	if(lista[j]<=x)
+        {
+			i++;
+       	    aux=lista[i];
+           	lista[i]=lista[j];
+            lista[j]=aux;
+		}
+	p=i+1;
+	aux=lista[p];
+	lista[p]=lista[h];
+	lista[h]=aux;
+
+	td[0].l=l;
+	td[0].h=p-1;
+
+	td[1].l=p+1;
+	td[1].h=h;
+
+	pthread_t thread[2];
+	int rc;
+
+	rc=pthread_create(&thread[0],NULL,quick_sort_iterative_pthread_4,(void *)&td[0]);
+	if(rc)
+	{
+		printf("Error:unable to create thread, %d",rc);
+        exit(-1);
+	}
+
+	rc=pthread_create(&thread[1],NULL,quick_sort_iterative_pthread_4,(void *)&td[1]);
+	if(rc)
+	{
+		printf("Error:unable to create thread, %d",rc);
+        exit(-1);
+	}
+
+	pthread_join(thread[0],NULL);
+	pthread_join(thread[1],NULL);
+
+	pthread_exit(NULL);
+
+}
+
+void quick_sort_iterative_pthread_16(void *threadarg)
+{
+	//read args l,h
+	struct thread_data *my_data;
+	my_data=(struct thread_data *)threadarg;
+	long l=my_data->l,h=my_data->h;
+
+	struct thread_data td[2];
+
+	long p,i,j;
+	double x,aux;
+
+/*	x=lista[l];
+	i=l-1;
+	j=h+1;
+	int flag=1;
+	while(flag)
+	{
+		do
+    	{
+	    	i++;
+	    }
+	    while(lista[i]<x);
+	    do
+	    {
+    		j--;
+    	}
+	    while(lista[j]>x);
+    	if(i>=j)
+	    {
+    		p=j;
+        	flag=0;
+	    }
+    	else
+    	{
+	    	aux=lista[i];
+    	    lista[i]=lista[j];
+        	lista[j]=aux;
+	    }
+	}
+*/
+
+	//x=lista[h];
+
+	i=(l-1);
+
+	//for(j=l;j<=h-1;j++)
+	for(j=l;j<=h;j++)
+		//if(lista[j]<=x)
+       	if(lista[j]<=punto)
+        {
+			i++;
+       	    aux=lista[i];
+           	lista[i]=lista[j];
+            lista[j]=aux;
+		}
+	p=i+1;
+	//aux=lista[p];
+	//lista[p]=lista[h];
+	//lista[h]=aux;
+
+	td[0].l=l;
+	td[0].h=p-1;
+
+	//td[1].l=p+1;
+	td[1].l=p;
+	td[1].h=h;
+
+	pthread_t thread[2];
+	int rc;
+
+	rc=pthread_create(&thread[0],NULL,quick_sort_iterative_pthread_8,(void *)&td[0]);
+	if(rc)
+	{
+		printf("Error:unable to create thread, %d",rc);
+        exit(-1);
+	}
+
+	rc=pthread_create(&thread[1],NULL,quick_sort_iterative_pthread_8,(void *)&td[1]);
+	if(rc)
+	{
+		printf("Error:unable to create thread, %d",rc);
+        exit(-1);
+	}
+
+	pthread_join(thread[0],NULL);
+	pthread_join(thread[1],NULL);
+}
